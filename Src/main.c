@@ -41,17 +41,24 @@
 #include "stm32l4xx_hal.h"
 
 /* USER CODE BEGIN Includes */
-const uint16_t _AIRQ5_DATA_CHANNEL_CO  = 0x6000;
-const uint8_t _AIRQ5_REG_POINTER_CONVERT     = 0x00;
-const uint8_t _AIRQ5_REG_POINTER_CONFIG      = 0x01;
-const uint16_t _AIRQ5_CONFIG_OS_SINGLE    = 0x8000;
-const uint16_t _AIRQ5_CONFIG_PGA_2_048V   = 0x0400;
-const uint16_t _AIRQ5_CONFIG_SINGLE_MODE      = 0x0100;
-const uint16_t _AIRQ5_CONFIG_DATA_RATE_1600SPS   = 0x0080;
-const uint16_t _AIRQ5_CONFIG_COMP_MODE_TRADITIONAL  = 0x0000;
-const uint16_t _AIRQ5_CONFIG_COMP_POL_ACTIVE_LOW    = 0x0000;
-const uint16_t _AIRQ5_CONFIG_COMP_LAT_NOT_LATCH   = 0x0000;
-const uint16_t _AIRQ5_CONFIG_COMP_QUE_0CONV   = 0x0003;
+const uint16_t _AIRQ5_DATA_CHANNEL_CO = 0x6000;
+const uint8_t _AIRQ5_REG_POINTER_CONVERT = 0x00;
+const uint8_t _AIRQ5_REG_POINTER_CONFIG = 0x01;
+const uint16_t _AIRQ5_CONFIG_OS_SINGLE = 0x8000;
+const uint16_t _AIRQ5_CONFIG_PGA_2_048V = 0x0400;
+const uint16_t _AIRQ5_CONFIG_SINGLE_MODE = 0x0100;
+const uint16_t _AIRQ5_CONFIG_DATA_RATE_1600SPS = 0x0080;
+const uint16_t _AIRQ5_CONFIG_COMP_MODE_TRADITIONAL = 0x0000;
+const uint16_t _AIRQ5_CONFIG_COMP_POL_ACTIVE_LOW = 0x0000;
+const uint16_t _AIRQ5_CONFIG_COMP_LAT_NOT_LATCH = 0x0000;
+const uint16_t _AIRQ5_CONFIG_COMP_QUE_0CONV = 0x0003;
+
+unsigned char frame_type = 0x01;		//Transmit Request Frame, API identifier
+unsigned char frame_id = 0x01;		//Identifies data frame to enable respond frame, API Frame ID
+unsigned char option = 0x00;
+unsigned char destination_add_MSB = 0x00;
+unsigned char destination_add_LSB = 0x00;
+unsigned char sum2 = 0x00;
 
 uint8_t address_for_write = 0x90; // When set to a “1” a read operation is selected, when set to a “0” a write operation is selected.
 uint8_t address_for_read = 0x91; // When set to a “1” a read operation is selected, when set to a “0” a write operation is selected.
@@ -148,7 +155,22 @@ uint8_t applicationTask()
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
+unsigned char send_to_xbee(unsigned char data[]){
+	unsigned char dataH[16];
 
+	unsigned char sum1 = frame_type + frame_id + destination_add_MSB + destination_add_LSB + option;
+	for(int i=0; i<strlen(data); i++){
+		sum2+=data[i];
+	}
+	for(int i=0; i<strlen(data); i++){
+		dataH[8+i]= data[i];
+	}
+	unsigned char sum = sum1 + sum2;
+	unsigned char two_last_digit = sum & 0xFF;
+	unsigned char checksum = 0xFF - two_last_digit;
+	return dataH[15]= checksum & 0xFF;
+
+}
 /* USER CODE END 0 */
 
 /**
@@ -192,8 +214,10 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  uint8_t CO=applicationTask();
-	  HAL_UART_Transmit(&huart2, CO, 1, 100);
+	  unsigned char CO=applicationTask();
+	  unsigned char CO_data=send_to_xbee(CO);
+	  HAL_UART_Transmit(&huart2, CO_data, 1, 100);
+	  HAL_UART_Transmit(&huart1, CO_data, 1, 100);
   /* USER CODE END WHILE */
 
   /* USER CODE BEGIN 3 */
