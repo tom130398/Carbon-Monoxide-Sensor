@@ -53,6 +53,9 @@ const uint16_t _AIRQ5_CONFIG_COMP_POL_ACTIVE_LOW = 0x0000;
 const uint16_t _AIRQ5_CONFIG_COMP_LAT_NOT_LATCH = 0x0000;
 const uint16_t _AIRQ5_CONFIG_COMP_QUE_0CONV = 0x0003;
 
+unsigned char start_delimeter = 0x7E;
+unsigned char length_MSB = 0x00;
+unsigned char length_LSB = 0x0C;
 unsigned char frame_type = 0x01;		//Transmit Request Frame, API identifier
 unsigned char frame_id = 0x01;		//Identifies data frame to enable respond frame, API Frame ID
 unsigned char option = 0x00;
@@ -60,8 +63,8 @@ unsigned char destination_add_MSB = 0x00;
 unsigned char destination_add_LSB = 0x00;
 unsigned char sum2 = 0x00;
 
-uint8_t address_for_write = 0x90; // When set to a “1” a read operation is selected, when set to a “0” a write operation is selected.
-uint8_t address_for_read = 0x91; // When set to a “1” a read operation is selected, when set to a “0” a write operation is selected.
+uint8_t address_for_write = 0x90; // When set to a â€œ1â€? a read operation is selected, when set to a â€œ0â€? a write operation is selected.
+uint8_t address_for_read = 0x91; // When set to a â€œ1â€? a read operation is selected, when set to a â€œ0â€? a write operation is selected.
 static uint16_t _dataConfig = 0x8583;
 
 /* USER CODE END Includes */
@@ -155,21 +158,27 @@ uint8_t applicationTask()
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
-unsigned char send_to_xbee(unsigned char data[]){
-	unsigned char dataH[16];
+void send_to_xbee(char dataHexa[8]){
 
-	unsigned char sum1 = frame_type + frame_id + destination_add_MSB + destination_add_LSB + option;
-	for(int i=0; i<strlen(data); i++){
-		sum2+=data[i];
+	int sum1 = frame_type + frame_id + destination_add_MSB + destination_add_LSB + option;
+
+	for (int i = 0; i < strlen(dataHexa); i++) {
+		sum2 += dataHexa[i];
 	}
-	for(int i=0; i<strlen(data); i++){
-		dataH[8+i]= data[i];
-	}
-	unsigned char sum = sum1 + sum2;
+
+	int sum = 0;
+	sum = sum1 + sum2;
+
 	unsigned char two_last_digit = sum & 0xFF;
-	unsigned char checksum = 0xFF - two_last_digit;
-	return dataH[15]= checksum & 0xFF;
 
+	unsigned char checksum = 255 - two_last_digit;
+
+	unsigned char message[16] = { start_delimeter, length_MSB, length_LSB, frame_type, frame_id, destination_add_MSB, destination_add_LSB,option, 0, 0, 0, 0, 0, 0, 0, checksum };
+	
+	for (int i = 0; i < 7; i++) {
+		message[8 + i] = dataHexa[i];
+	}
+	HAL_UART_Transmit(&huart1, message, 16, 100);
 }
 /* USER CODE END 0 */
 
@@ -205,7 +214,6 @@ int main(void)
   MX_USART2_UART_Init();
   MX_USART1_UART_Init();
   MX_I2C1_Init();
-  applicationInit();
   /* USER CODE BEGIN 2 */
 
   /* USER CODE END 2 */
@@ -214,10 +222,11 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  unsigned char CO=applicationTask();
-	  unsigned char CO_data=send_to_xbee(CO);
-	  HAL_UART_Transmit(&huart2, CO_data, 1, 100);
-	  HAL_UART_Transmit(&huart1, CO_data, 1, 100);
+	  char CO=applicationTask();
+	  send_to_xbee(CO);
+	  HAL_UART_Transmit(&huart2, CO, 1, 100);
+	  //HAL_UART_Transmit(&huart2, message, 16, 100);
+	  HAL_Delay(2000);
   /* USER CODE END WHILE */
 
   /* USER CODE BEGIN 3 */
@@ -315,7 +324,7 @@ static void MX_I2C1_Init(void)
 {
 
   hi2c1.Instance = I2C1;
-  hi2c1.Init.Timing = 0x00000E14;
+  hi2c1.Init.Timing = 0x00707CBB;
   hi2c1.Init.OwnAddress1 = 0;
   hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
   hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
@@ -349,7 +358,7 @@ static void MX_USART1_UART_Init(void)
 {
 
   huart1.Instance = USART1;
-  huart1.Init.BaudRate = 115200;
+  huart1.Init.BaudRate = 9600;
   huart1.Init.WordLength = UART_WORDLENGTH_8B;
   huart1.Init.StopBits = UART_STOPBITS_1;
   huart1.Init.Parity = UART_PARITY_NONE;
