@@ -61,7 +61,6 @@ unsigned char frame_id = 0x01;		//Identifies data frame to enable respond frame,
 unsigned char option = 0x00;
 unsigned char destination_add_MSB = 0xAB;
 unsigned char destination_add_LSB = 0x01;
-unsigned char sum2 = 0x00;
 
 uint8_t address_for_write = 0x90; // When set to a â€œ1â€? a read operation is selected, when set to a â€œ0â€? a write operation is selected.
 uint8_t address_for_read = 0x91; // When set to a â€œ1â€? a read operation is selected, when set to a â€œ0â€? a write operation is selected.
@@ -159,26 +158,21 @@ uint8_t applicationTask()
 
 /* USER CODE BEGIN 0 */
 void send_to_xbee(char dataHexa[8]){
-
+	int sum2 = 0x00;
 	int sum1 = frame_type + frame_id + destination_add_MSB + destination_add_LSB + option;
-
 	for (int i = 0; i < strlen(dataHexa); i++) {
 		sum2 += dataHexa[i];
 	}
-
 	int sum = 0;
 	sum = sum1 + sum2;
-
 	unsigned char two_last_digit = sum & 0xFF;
-
 	unsigned char checksum = 255 - two_last_digit;
-
-	unsigned char message[16] = { start_delimeter, length_MSB, length_LSB, frame_type, frame_id, destination_add_MSB, destination_add_LSB,option, 0, 0, 0, 0, 0, 0, 0, checksum };
-	
+	unsigned char message[16] = { start_delimeter, length_MSB, length_LSB,frame_type, frame_id, destination_add_MSB, destination_add_LSB,option, 0, 0, 0, 0, 0, 0, 0, checksum };
 	for (int i = 0; i < 7; i++) {
 		message[8 + i] = dataHexa[i];
 	}
 	HAL_UART_Transmit(&huart1, message, 16, 100);
+	HAL_UART_Transmit(&huart2, message, 16, 100);
 }
 /* USER CODE END 0 */
 
@@ -224,9 +218,9 @@ int main(void)
   {
 	  char data[8]="";
 	  uint16_t CO=applicationTask();
-	  sprintf(data,"CO=%d\n", CO);
+	  sprintf(data,"CO=%d", CO);
 	  send_to_xbee(data);
-	  HAL_UART_Transmit(&huart2, (uint16_t*)data, strlen(data), 100);
+	  //HAL_UART_Transmit(&huart2, (uint16_t*)data, strlen(data), 100);
 	  HAL_Delay(1000);
   /* USER CODE END WHILE */
 
