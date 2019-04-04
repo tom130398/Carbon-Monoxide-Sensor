@@ -59,8 +59,8 @@ unsigned char length_LSB = 0x0C;
 unsigned char frame_type = 0x01;		//Transmit Request Frame, API identifier
 unsigned char frame_id = 0x01;		//Identifies data frame to enable respond frame, API Frame ID
 unsigned char option = 0x00;
-unsigned char destination_add_MSB = 0x00;
-unsigned char destination_add_LSB = 0x00;
+unsigned char destination_add_MSB = 0xAB;
+unsigned char destination_add_LSB = 0x01;
 unsigned char sum2 = 0x00;
 
 uint8_t address_for_write = 0x90; // When set to a â€œ1â€? a read operation is selected, when set to a â€œ0â€? a write operation is selected.
@@ -222,11 +222,12 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  char CO=applicationTask();
-	  send_to_xbee(CO);
-	  HAL_UART_Transmit(&huart2, CO, 1, 100);
-	  //HAL_UART_Transmit(&huart2, message, 16, 100);
-	  HAL_Delay(2000);
+	  char data[8]="";
+	  uint16_t CO=applicationTask();
+	  sprintf(data,"CO=%d\n", CO);
+	  send_to_xbee(data);
+	  HAL_UART_Transmit(&huart2, (uint16_t*)data, strlen(data), 100);
+	  HAL_Delay(1000);
   /* USER CODE END WHILE */
 
   /* USER CODE BEGIN 3 */
