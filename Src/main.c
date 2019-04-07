@@ -39,6 +39,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "stm32l4xx_hal.h"
+#include <math.h>
 
 /* USER CODE BEGIN Includes */
 //const uint16_t _AIRQ5_DATA_CHANNEL_CO = 0x6000;
@@ -241,8 +242,10 @@ int main(void)
 		  HAL_I2C_Master_Transmit(&hi2c1, ADS1015_ADDRESS_write, ADSwrite, 1, 100);
 		  HAL_Delay(2000);
 		  HAL_I2C_Master_Receive(&hi2c1, ADS1015_ADDRESS_read, received_data, 2, 100);
-		  reading = ((received_data[0] << 8) | received_data[1]);
-		  CO=reading * voltageConv;
+		  reading = ((received_data[0] << 8) | received_data[1]) >> 4;
+		  CO=100-reading;
+		  if(CO < 0)
+			  CO=0;
 		  sprintf(data,"CO=%d", CO);
 		  send_to_xbee(data);
 	}
