@@ -243,14 +243,13 @@ int main(void)
 		  HAL_Delay(2000);
 		  HAL_I2C_Master_Receive(&hi2c1, ADS1015_ADDRESS_read, received_data, 2, 100);
 		  reading = ((received_data[0] << 8) | received_data[1]) >> 4;
-		  CO=100-reading;
-		  if(CO < 0)
-			  CO=0;
-		  sprintf(data,"CO=%d", CO);
+		  //CO=reading*voltageConv;
+		  if(CO < 1)
+			  CO=1;
+		  sprintf(data,"CO=%d", reading);
 		  send_to_xbee(data);
 	}
   /* USER CODE BEGIN 3 */
-
   }
   /* USER CODE END 3 */
 
