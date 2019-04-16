@@ -42,20 +42,6 @@
 #include <math.h>
 
 /* USER CODE BEGIN Includes */
-//const uint16_t _AIRQ5_DATA_CHANNEL_CO = 0x6000;
-//const uint16_t _AIRQ5_DATA_CHANNEL_NO2 = 0x4000;
-//const uint16_t _AIRQ5_DATA_CHANNEL_NH3 = 0x5000;
-//const uint8_t _AIRQ5_REG_POINTER_CONVERT = 0x00;
-//const uint8_t _AIRQ5_REG_POINTER_CONFIG = 0x01;
-//const uint16_t _AIRQ5_CONFIG_OS_SINGLE = 0x8000;
-//const uint16_t _AIRQ5_CONFIG_PGA_2_048V = 0x0400;
-//const uint16_t _AIRQ5_CONFIG_SINGLE_MODE = 0x0100;
-//const uint16_t _AIRQ5_CONFIG_DATA_RATE_1600SPS = 0x0080;
-//const uint16_t _AIRQ5_CONFIG_COMP_MODE_TRADITIONAL = 0x0000;
-//const uint16_t _AIRQ5_CONFIG_COMP_POL_ACTIVE_LOW = 0x0000;
-//const uint16_t _AIRQ5_CONFIG_COMP_LAT_NOT_LATCH = 0x0000;
-//const uint16_t _AIRQ5_CONFIG_COMP_QUE_0CONV = 0x0003;
-//
 unsigned char start_delimeter = 0x7E;
 unsigned char length_MSB = 0x00;
 unsigned char length_LSB = 0x0C;
@@ -69,10 +55,15 @@ unsigned char ADS1015_ADDRESS=0x48;			//1001000
 unsigned char ADS1015_ADDRESS_write=0x90;	//10010000
 unsigned char ADS1015_ADDRESS_read=0x91;	//10010001
 unsigned char ADSwrite[6];
+unsigned char ADSwrite2[6];
 unsigned char received_data[6];
+unsigned char received_data2[6];
 int16_t reading;
+int16_t reading2;
+int16_t reading1=0;
 int CO;
-const float voltageConv=2.048/2048 ;
+const float voltageConv=2.048/2048;
+float VRo, VRs, IRo, IRs, Ro, Rs, ratio;
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
@@ -95,72 +86,7 @@ static void MX_I2C1_Init(void);
 
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
-//void airq5_writeData(uint8_t reg, uint16_t _data)
-//{
-//    uint8_t writeReg[ 3 ];
-//
-//    writeReg[ 0 ] = reg;
-//    writeReg[ 1 ] = _data >> 8;
-//    writeReg[ 2 ] = _data & 0x00FF;
-//
-//    HAL_I2C_Master_Transmit(&hi2c1, address_for_write, writeReg, 1,100);
-//}
-//
-//uint16_t airq5_readData(uint8_t reg)
-//{
-//    uint8_t writeReg[ 1 ];
-//    uint8_t readReg[ 2 ];
-//    uint16_t dataValue;
-//
-//    writeReg[ 0 ] = reg;
-//
-//    HAL_I2C_Master_Transmit(&hi2c1, address_for_write, writeReg, 1,100);
-//    HAL_I2C_Master_Receive(&hi2c1, address_for_read, readReg, 2, 100);
-//
-//    dataValue = readReg[ 0 ];
-//    dataValue = dataValue << 8;
-//    dataValue = dataValue | readReg[ 1 ];
-//    return dataValue;
-//}
-//
-//void airq5_setConfiguration(uint16_t config)
-//{
-//    _dataConfig = config;
-//}
-//
-//uint16_t airq5_readSensorData(uint16_t channel_data)
-//{
-//	uint16_t setConfig;
-//	uint16_t getData;
-//
-//	setConfig = _dataConfig;
-//	setConfig = setConfig | channel_data;
-//    airq5_writeData(_AIRQ5_REG_POINTER_CONFIG, setConfig );
-//    getData = airq5_readData( _AIRQ5_REG_POINTER_CONVERT );
-//
-//    getData = getData >> 4;
-//
-//    return getData;
-//}
-//
-//void applicationInit()
-//{
-//    airq5_setConfiguration( _AIRQ5_CONFIG_OS_SINGLE |
-//                            _AIRQ5_CONFIG_PGA_2_048V |
-//                            _AIRQ5_CONFIG_SINGLE_MODE |
-//                            _AIRQ5_CONFIG_DATA_RATE_1600SPS |
-//                            _AIRQ5_CONFIG_COMP_MODE_TRADITIONAL |
-//                            _AIRQ5_CONFIG_COMP_POL_ACTIVE_LOW |
-//                            _AIRQ5_CONFIG_COMP_LAT_NOT_LATCH |
-//                            _AIRQ5_CONFIG_COMP_QUE_0CONV );
-//}
-//
-//uint8_t applicationTask()
-//{
-//      uint8_t CO_sensorData = airq5_readSensorData(_AIRQ5_DATA_CHANNEL_CO);
-//      HAL_Delay( 200 );
-//      return CO_sensorData;
-//}
+
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
@@ -179,7 +105,7 @@ void send_to_xbee(char dataHexa[8]){
 		message[8 + i] = dataHexa[i];
 	}
 	HAL_UART_Transmit(&huart1, message, 16, 100);
-	HAL_UART_Transmit(&huart2, message, 16, 100);
+	//HAL_UART_Transmit(&huart2, message, 16, 100);
 }
 /* USER CODE END 0 */
 
@@ -217,39 +143,86 @@ int main(void)
   MX_I2C1_Init();
   //applicationInit();
   /* USER CODE BEGIN 2 */
-
+  ADSwrite[0]=0x01;
+  ADSwrite[1]=0xE5;	//11100101
+  ADSwrite[2]=0x83;	//10000011
   /* USER CODE END 2 */
 
+  for(int i=0; i<30; i++){
+	  HAL_I2C_Master_Transmit(&hi2c1, ADS1015_ADDRESS_write, ADSwrite, 3, 100);
+	  ADSwrite[0]=0x00;
+	  HAL_I2C_Master_Transmit(&hi2c1, ADS1015_ADDRESS_write, ADSwrite, 1, 100);
+	  //HAL_Delay(500);
+	  HAL_I2C_Master_Receive(&hi2c1, ADS1015_ADDRESS_read, received_data, 2, 100);
+	  reading = ((received_data[0] << 8) | received_data[1]) >> 4;
+  	  reading1+=reading;
+  }
+  reading1=reading1/30;
+  VRo=5-reading1*voltageConv;
+  IRo=VRo/56;
+  Ro=(reading1*voltageConv)/IRo;
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-//	  char data[8]="";
-//	  uint8_t CO=applicationTask();
-//	  sprintf(data,"CO=%d", CO);
-//	  send_to_xbee(data);
-//	  //HAL_UART_Transmit(&huart2, (uint16_t*)data, strlen(data), 100);
-//	  HAL_Delay(1000);
   /* USER CODE END WHILE */
-	  for(int i=0; i<4; i++){
 		  char data[8]="";
+		  char data1[20]="";
+		  char data2[20]="";
+		  char data3[20]="";
+		  char data4[20]="";
+		  char data5[20]="";
+		  char data6[20]="";
+		  char data7[20]="";
+		  char data8[20]="";
+		  char data9[20]="";
 
 		  ADSwrite[0]=0x01;
-		  ADSwrite[1]=0xE5;	//11100101
-		  ADSwrite[2]=0x83;	//10000011
 		  HAL_I2C_Master_Transmit(&hi2c1, ADS1015_ADDRESS_write, ADSwrite, 3, 100);
 		  ADSwrite[0]=0x00;
 		  HAL_I2C_Master_Transmit(&hi2c1, ADS1015_ADDRESS_write, ADSwrite, 1, 100);
 		  HAL_Delay(2000);
-		  HAL_I2C_Master_Receive(&hi2c1, ADS1015_ADDRESS_read, received_data, 2, 100);
-		  reading = ((received_data[0] << 8) | received_data[1]) >> 4;
-		  //CO=reading*voltageConv;
+		  HAL_I2C_Master_Receive(&hi2c1, ADS1015_ADDRESS_read, received_data2, 2, 100);
+		  reading2 = ((received_data2[0] << 8) | received_data2[1]) >> 4;
+		  VRs=5-reading2*voltageConv;
+		  IRs=VRs/56;
+		  Rs=(reading2*voltageConv)/IRs;
+		  ratio=Rs/Ro;
+		  CO=4.4638*pow(ratio, -1.177);
 		  if(CO < 1)
 			  CO=1;
-		  sprintf(data,"CO=%d", reading);
+		  sprintf(data,"CO=%d", CO);
+		  sprintf(data1,"Vo=%.1f\n", VRo);
+		  sprintf(data2,"Io=%.1f\n", IRo);
+		  sprintf(data3,"Ro=%.1f\n", Ro);
+		  sprintf(data4,"Vs=%.1f\n", VRs);
+		  sprintf(data5,"Is=%.1f\n", IRs);
+		  sprintf(data6,"Rs=%.1f\n", Rs);
+		  sprintf(data7,"ra=%.1f\n", ratio);
+		  sprintf(data8,"r1=%d\n", reading1);
+		  sprintf(data9,"r2=%d\n", reading2);
+		  HAL_UART_Transmit(&huart2, data8, sizeof(data8), 100);
+		  HAL_UART_Transmit(&huart2, data1, sizeof(data1), 100);
+		  HAL_UART_Transmit(&huart2, data2, sizeof(data2), 100);
+		  HAL_UART_Transmit(&huart2, data3, sizeof(data3), 100);
+		  HAL_UART_Transmit(&huart2, data9, sizeof(data9), 100);
+		  HAL_UART_Transmit(&huart2, data4, sizeof(data4), 100);
+		  HAL_UART_Transmit(&huart2, data5, sizeof(data5), 100);
+		  HAL_UART_Transmit(&huart2, data6, sizeof(data6), 100);
+		  HAL_UART_Transmit(&huart2, data7, sizeof(data7), 100);
+		  HAL_UART_Transmit(&huart2, data, sizeof(data), 100);
+		  send_to_xbee(data1);
+		  send_to_xbee(data2);
+		  send_to_xbee(data3);
+		  send_to_xbee(data4);
+		  send_to_xbee(data5);
+		  send_to_xbee(data6);
+		  send_to_xbee(data7);
+		  send_to_xbee(data8);
+		  send_to_xbee(data9);
 		  send_to_xbee(data);
-	}
   /* USER CODE BEGIN 3 */
+
   }
   /* USER CODE END 3 */
 
