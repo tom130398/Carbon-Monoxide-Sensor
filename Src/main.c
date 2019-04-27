@@ -100,7 +100,8 @@ void send_to_xbee(char dataHexa[8]){
 	sum = sum1 + sum2;
 	unsigned char two_last_digit = sum & 0xFF;
 	unsigned char checksum = 255 - two_last_digit;
-	unsigned char message[16] = { start_delimeter, length_MSB, length_LSB,frame_type, frame_id, destination_add_MSB, destination_add_LSB,option, 0, 0, 0, 0, 0, 0, 0, checksum };
+	unsigned char message[16] = { start_delimeter, length_MSB, length_LSB,frame_type, frame_id, destination_add_MSB, 
+				     destination_add_LSB,option, 0, 0, 0, 0, 0, 0, 0, checksum };
 	for (int i = 0; i < 7; i++) {
 		message[8 + i] = dataHexa[i];
 	}
