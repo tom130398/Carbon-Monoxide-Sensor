@@ -167,16 +167,6 @@ int main(void)
   {
   /* USER CODE END WHILE */
 		  char data[8]="";
-		  char data1[20]="";
-		  char data2[20]="";
-		  char data3[20]="";
-		  char data4[20]="";
-		  char data5[20]="";
-		  char data6[20]="";
-		  char data7[20]="";
-		  char data8[20]="";
-		  char data9[20]="";
-
 		  ADSwrite[0]=0x01;
 		  HAL_I2C_Master_Transmit(&hi2c1, ADS1015_ADDRESS_write, ADSwrite, 3, 100);
 		  ADSwrite[0]=0x00;
@@ -191,35 +181,7 @@ int main(void)
 		  CO=4.4638*pow(ratio, -1.177);
 		  if(CO < 1)
 			  CO=1;
-		  sprintf(data,"CO=%d", CO);
-		  sprintf(data1,"Vo=%.1f\n", VRo);
-		  sprintf(data2,"Io=%.1f\n", IRo);
-		  sprintf(data3,"Ro=%.1f\n", Ro);
-		  sprintf(data4,"Vs=%.1f\n", VRs);
-		  sprintf(data5,"Is=%.1f\n", IRs);
-		  sprintf(data6,"Rs=%.1f\n", Rs);
-		  sprintf(data7,"ra=%.1f\n", ratio);
-		  sprintf(data8,"r1=%d\n", reading1);
-		  sprintf(data9,"r2=%d\n", reading2);
-		  HAL_UART_Transmit(&huart2, data8, sizeof(data8), 100);
-		  HAL_UART_Transmit(&huart2, data1, sizeof(data1), 100);
-		  HAL_UART_Transmit(&huart2, data2, sizeof(data2), 100);
-		  HAL_UART_Transmit(&huart2, data3, sizeof(data3), 100);
-		  HAL_UART_Transmit(&huart2, data9, sizeof(data9), 100);
-		  HAL_UART_Transmit(&huart2, data4, sizeof(data4), 100);
-		  HAL_UART_Transmit(&huart2, data5, sizeof(data5), 100);
-		  HAL_UART_Transmit(&huart2, data6, sizeof(data6), 100);
-		  HAL_UART_Transmit(&huart2, data7, sizeof(data7), 100);
-		  HAL_UART_Transmit(&huart2, data, sizeof(data), 100);
-		  send_to_xbee(data1);
-		  send_to_xbee(data2);
-		  send_to_xbee(data3);
-		  send_to_xbee(data4);
-		  send_to_xbee(data5);
-		  send_to_xbee(data6);
-		  send_to_xbee(data7);
-		  send_to_xbee(data8);
-		  send_to_xbee(data9);
+		  sprintf(data,"1+%d", CO);
 		  send_to_xbee(data);
   /* USER CODE BEGIN 3 */
 
