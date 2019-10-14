@@ -6,7 +6,7 @@
   ******************************************************************************
   ** This notice applies to any and all portions of this file
   * that are not between comment pairs USER CODE BEGIN and
-  * USER CODE END. Other portions of this file, whether 
+  * USER CODE END. Other portions of this file, whether
   * inserted by the user or by software development tools
   * are owned by their respective copyright owners.
   *
@@ -39,20 +39,9 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "stm32l4xx_hal.h"
+#include <math.h>
 
 /* USER CODE BEGIN Includes */
-const uint16_t _AIRQ5_DATA_CHANNEL_CO = 0x6000;
-const uint8_t _AIRQ5_REG_POINTER_CONVERT = 0x00;
-const uint8_t _AIRQ5_REG_POINTER_CONFIG = 0x01;
-const uint16_t _AIRQ5_CONFIG_OS_SINGLE = 0x8000;
-const uint16_t _AIRQ5_CONFIG_PGA_2_048V = 0x0400;
-const uint16_t _AIRQ5_CONFIG_SINGLE_MODE = 0x0100;
-const uint16_t _AIRQ5_CONFIG_DATA_RATE_1600SPS = 0x0080;
-const uint16_t _AIRQ5_CONFIG_COMP_MODE_TRADITIONAL = 0x0000;
-const uint16_t _AIRQ5_CONFIG_COMP_POL_ACTIVE_LOW = 0x0000;
-const uint16_t _AIRQ5_CONFIG_COMP_LAT_NOT_LATCH = 0x0000;
-const uint16_t _AIRQ5_CONFIG_COMP_QUE_0CONV = 0x0003;
-
 unsigned char start_delimeter = 0x7E;
 unsigned char length_MSB = 0x00;
 unsigned char length_LSB = 0x0C;
@@ -61,12 +50,20 @@ unsigned char frame_id = 0x01;		//Identifies data frame to enable respond frame,
 unsigned char option = 0x00;
 unsigned char destination_add_MSB = 0xAB;
 unsigned char destination_add_LSB = 0x01;
-unsigned char sum2 = 0x00;
 
-uint8_t address_for_write = 0x90; // When set to a â€œ1â€? a read operation is selected, when set to a â€œ0â€? a write operation is selected.
-uint8_t address_for_read = 0x91; // When set to a â€œ1â€? a read operation is selected, when set to a â€œ0â€? a write operation is selected.
-static uint16_t _dataConfig = 0x8583;
-
+unsigned char ADS1015_ADDRESS=0x48;			//1001000
+unsigned char ADS1015_ADDRESS_write=0x90;	//10010000
+unsigned char ADS1015_ADDRESS_read=0x91;	//10010001
+unsigned char ADSwrite[6];
+unsigned char ADSwrite2[6];
+unsigned char received_data[6];
+unsigned char received_data2[6];
+int16_t reading;
+int16_t reading2;
+int16_t reading1=0;
+int CO;
+const float voltageConv=2.048/2048;
+float VRo, VRs, IRo, IRs, Ro, Rs, ratio;
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
@@ -89,96 +86,27 @@ static void MX_I2C1_Init(void);
 
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
-void airq5_writeData(uint8_t reg, uint16_t _data)
-{
-    uint8_t writeReg[ 3 ];
 
-    writeReg[ 0 ] = reg;
-    writeReg[ 1 ] = _data >> 8;
-    writeReg[ 2 ] = _data & 0x00FF;
-
-    HAL_I2C_Master_Transmit(&hi2c1, address_for_write, writeReg, 1,100);
-}
-
-uint16_t airq5_readData(uint8_t reg)
-{
-    uint8_t writeReg[ 1 ];
-    uint8_t readReg[ 2 ];
-    uint16_t dataValue;
-
-    writeReg[ 0 ] = reg;
-
-    HAL_I2C_Master_Transmit(&hi2c1, address_for_write, writeReg, 1,100);
-
-    dataValue = readReg[ 0 ];
-    dataValue = dataValue << 8;
-    dataValue = dataValue | readReg[ 1 ];
-    HAL_I2C_Master_Receive(&hi2c1, address_for_read, readReg, 2, 100);
-    return dataValue;
-}
-
-void airq5_setConfiguration(uint16_t config)
-{
-    _dataConfig = config;
-}
-
-uint16_t airq5_readSensorData(uint16_t channel_data)
-{
-	uint16_t setConfig;
-	uint16_t getData;
-
-	setConfig = _dataConfig;
-	setConfig = setConfig | channel_data;
-    airq5_writeData(_AIRQ5_REG_POINTER_CONFIG, setConfig );
-    getData = airq5_readData( _AIRQ5_REG_POINTER_CONVERT );
-
-    getData = getData >> 4;
-
-    return getData;
-}
-
-void applicationInit()
-{
-    airq5_setConfiguration( _AIRQ5_CONFIG_OS_SINGLE |
-                            _AIRQ5_CONFIG_PGA_2_048V |
-                            _AIRQ5_CONFIG_SINGLE_MODE |
-                            _AIRQ5_CONFIG_DATA_RATE_1600SPS |
-                            _AIRQ5_CONFIG_COMP_MODE_TRADITIONAL |
-                            _AIRQ5_CONFIG_COMP_POL_ACTIVE_LOW |
-                            _AIRQ5_CONFIG_COMP_LAT_NOT_LATCH |
-                            _AIRQ5_CONFIG_COMP_QUE_0CONV );
-}
-
-uint8_t applicationTask()
-{
-      uint8_t CO_sensorData = airq5_readSensorData(_AIRQ5_DATA_CHANNEL_CO);
-      HAL_Delay( 200 );
-      return CO_sensorData;
-}
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
 void send_to_xbee(char dataHexa[8]){
-
+	int sum2 = 0x00;
 	int sum1 = frame_type + frame_id + destination_add_MSB + destination_add_LSB + option;
-
 	for (int i = 0; i < strlen(dataHexa); i++) {
 		sum2 += dataHexa[i];
 	}
-
 	int sum = 0;
 	sum = sum1 + sum2;
-
 	unsigned char two_last_digit = sum & 0xFF;
-
 	unsigned char checksum = 255 - two_last_digit;
-
-	unsigned char message[16] = { start_delimeter, length_MSB, length_LSB, frame_type, frame_id, destination_add_MSB, destination_add_LSB,option, 0, 0, 0, 0, 0, 0, 0, checksum };
-	
+	unsigned char message[16] = { start_delimeter, length_MSB, length_LSB,frame_type, frame_id, destination_add_MSB, 
+				     destination_add_LSB,option, 0, 0, 0, 0, 0, 0, 0, checksum };
 	for (int i = 0; i < 7; i++) {
 		message[8 + i] = dataHexa[i];
 	}
 	HAL_UART_Transmit(&huart1, message, 16, 100);
+	//HAL_UART_Transmit(&huart2, message, 16, 100);
 }
 /* USER CODE END 0 */
 
@@ -214,22 +142,48 @@ int main(void)
   MX_USART2_UART_Init();
   MX_USART1_UART_Init();
   MX_I2C1_Init();
+  //applicationInit();
   /* USER CODE BEGIN 2 */
-
+  ADSwrite[0]=0x01;
+  ADSwrite[1]=0xE5;	//11100101
+  ADSwrite[2]=0x83;	//10000011
   /* USER CODE END 2 */
 
+  for(int i=0; i<30; i++){
+	  HAL_I2C_Master_Transmit(&hi2c1, ADS1015_ADDRESS_write, ADSwrite, 3, 100);
+	  ADSwrite[0]=0x00;
+	  HAL_I2C_Master_Transmit(&hi2c1, ADS1015_ADDRESS_write, ADSwrite, 1, 100);
+	  //HAL_Delay(500);
+	  HAL_I2C_Master_Receive(&hi2c1, ADS1015_ADDRESS_read, received_data, 2, 100);
+	  reading = ((received_data[0] << 8) | received_data[1]) >> 4;
+  	  reading1+=reading;
+  }
+  reading1=reading1/30;
+  VRo=5-reading1*voltageConv;
+  IRo=VRo/56;
+  Ro=(reading1*voltageConv)/IRo;
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  char data[8]="";
-	  uint16_t CO=applicationTask();
-	  sprintf(data,"CO=%d\n", CO);
-	  send_to_xbee(data);
-	  HAL_UART_Transmit(&huart2, (uint16_t*)data, strlen(data), 100);
-	  HAL_Delay(1000);
   /* USER CODE END WHILE */
-
+		  char data[8]="";
+		  ADSwrite[0]=0x01;
+		  HAL_I2C_Master_Transmit(&hi2c1, ADS1015_ADDRESS_write, ADSwrite, 3, 100);
+		  ADSwrite[0]=0x00;
+		  HAL_I2C_Master_Transmit(&hi2c1, ADS1015_ADDRESS_write, ADSwrite, 1, 100);
+		  HAL_Delay(2000);
+		  HAL_I2C_Master_Receive(&hi2c1, ADS1015_ADDRESS_read, received_data2, 2, 100);
+		  reading2 = ((received_data2[0] << 8) | received_data2[1]) >> 4;
+		  VRs=5-reading2*voltageConv;
+		  IRs=VRs/56;
+		  Rs=(reading2*voltageConv)/IRs;
+		  ratio=Rs/Ro;
+		  CO=4.4638*pow(ratio, -1.177);
+		  if(CO < 1)
+			  CO=1;
+		  sprintf(data,"1+%d", CO);
+		  send_to_xbee(data);
   /* USER CODE BEGIN 3 */
 
   }
@@ -248,13 +202,13 @@ void SystemClock_Config(void)
   RCC_ClkInitTypeDef RCC_ClkInitStruct;
   RCC_PeriphCLKInitTypeDef PeriphClkInit;
 
-    /**Configure LSE Drive Capability 
+    /**Configure LSE Drive Capability
     */
   HAL_PWR_EnableBkUpAccess();
 
   __HAL_RCC_LSEDRIVE_CONFIG(RCC_LSEDRIVE_LOW);
 
-    /**Initializes the CPU, AHB and APB busses clocks 
+    /**Initializes the CPU, AHB and APB busses clocks
     */
   RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_LSE|RCC_OSCILLATORTYPE_MSI;
   RCC_OscInitStruct.LSEState = RCC_LSE_ON;
@@ -273,7 +227,7 @@ void SystemClock_Config(void)
     _Error_Handler(__FILE__, __LINE__);
   }
 
-    /**Initializes the CPU, AHB and APB busses clocks 
+    /**Initializes the CPU, AHB and APB busses clocks
     */
   RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
                               |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
@@ -297,22 +251,22 @@ void SystemClock_Config(void)
     _Error_Handler(__FILE__, __LINE__);
   }
 
-    /**Configure the main internal regulator output voltage 
+    /**Configure the main internal regulator output voltage
     */
   if (HAL_PWREx_ControlVoltageScaling(PWR_REGULATOR_VOLTAGE_SCALE1) != HAL_OK)
   {
     _Error_Handler(__FILE__, __LINE__);
   }
 
-    /**Configure the Systick interrupt time 
+    /**Configure the Systick interrupt time
     */
   HAL_SYSTICK_Config(HAL_RCC_GetHCLKFreq()/1000);
 
-    /**Configure the Systick 
+    /**Configure the Systick
     */
   HAL_SYSTICK_CLKSourceConfig(SYSTICK_CLKSOURCE_HCLK);
 
-    /**Enable MSI Auto calibration 
+    /**Enable MSI Auto calibration
     */
   HAL_RCCEx_EnableMSIPLLMode();
 
@@ -338,14 +292,14 @@ static void MX_I2C1_Init(void)
     _Error_Handler(__FILE__, __LINE__);
   }
 
-    /**Configure Analogue filter 
+    /**Configure Analogue filter
     */
   if (HAL_I2CEx_ConfigAnalogFilter(&hi2c1, I2C_ANALOGFILTER_ENABLE) != HAL_OK)
   {
     _Error_Handler(__FILE__, __LINE__);
   }
 
-    /**Configure Digital filter 
+    /**Configure Digital filter
     */
   if (HAL_I2CEx_ConfigDigitalFilter(&hi2c1, 0) != HAL_OK)
   {
@@ -397,8 +351,8 @@ static void MX_USART2_UART_Init(void)
 }
 
 /** Configure pins as 
-        * Analog 
-        * Input 
+        * Analog
+        * Input
         * Output
         * EVENT_OUT
         * EXTI
@@ -454,7 +408,7 @@ void _Error_Handler(char *file, int line)
   * @retval None
   */
 void assert_failed(uint8_t* file, uint32_t line)
-{ 
+{
   /* USER CODE BEGIN 6 */
   /* User can add his own implementation to report the file name and line number,
      tex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
